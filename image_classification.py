@@ -16,14 +16,6 @@ import os
 from gtts import gTTS
 import base64
 
-# Set page layout
-st.set_page_config(layout="wide")
-
-# Load the model
-model = load_model("crop_disease_model.h5")
-
-
-# Define class labels
 class_labels = {
     0: "Common Rust (Corn)",
     1: "Gray Leaf Spot (Corn)",
@@ -44,7 +36,8 @@ class_labels = {
     16: "Healthy (Sugarcane)",
 }
 
-# Set up Google Gemini API
+st.set_page_config(layout="wide")
+model = load_model("crop_disease_model.h5")
 gemini_key = "gemini key"
 genai.configure(api_key=gemini_key)
 
@@ -105,9 +98,7 @@ st.markdown(
         }
     
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+    """, unsafe_allow_html=True)
 
 # Prompt
 System_Prompt = """
@@ -121,17 +112,13 @@ If the user asks about any other diseases, politely inform them that you special
 """
 
 # Initialize LLM
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-pro", google_api_key=gemini_key, temperature=0.7
-)
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", google_api_key=gemini_key, temperature=0.7)
 memory = ConversationBufferMemory(memory_key="history", return_messages=True)
 chatbot = ConversationChain(llm=llm, memory=memory)
 
 # Directory setup
 History_Dir = "chat_histories"
 os.makedirs(History_Dir, exist_ok=True)
-
-# Session state
 if "history" not in st.session_state:
     st.session_state.history = []
 if "current_session" not in st.session_state:
@@ -139,28 +126,20 @@ if "current_session" not in st.session_state:
 if "tts_enabled" not in st.session_state:
     st.session_state.tts_enabled = False
 
-
 # History functions
 def get_saved_chats():
     return sorted(
-        [
-            f.replace(".json", "")
-            for f in os.listdir(History_Dir)
-            if f.endswith(".json")
-        ],
-        reverse=True,
-    )
-
+        [f.replace(".json", "")
+            for f in os.listdir(History_Dir) 
+            if f.endswith(".json")], reverse=True)
 
 def load_chat_history(session_name):
     file_path = os.path.join(History_Dir, f"{session_name}.json")
     return json.load(open(file_path, "r")) if os.path.exists(file_path) else []
 
-
 def save_chat_history(session_name, history):
     with open(os.path.join(History_Dir, f"{session_name}.json"), "w") as file:
         json.dump(history, file)
-
 
 def text_to_speech(text, file_name="response.mp3"):
     tts = gTTS(text=text, lang="en")
@@ -169,15 +148,9 @@ def text_to_speech(text, file_name="response.mp3"):
     tts.save(file_path)
     return file_path
 
-
 # Streamlit app UI
-st.title(" 🌿 Farmer's AI Assistant")
-st.markdown(
-    '<p class="subtitle">Ask me about crop diseases, treatments, and prevention!</p>',
-    unsafe_allow_html=True,
-)
-
-# Tabs
+st.title("Farmer's AI Assistant")
+st.markdown("<p class="subtitle">Ask me about crop diseases, treatments, and prevention!</p>", unsafe_allow_html=True)
 tabs = st.tabs(["Image Classification", "AI Assistant", "History", "Settings"])
 
 # Image Classification tab
@@ -209,15 +182,11 @@ with tabs[0]:
 
 # AI Assistant tab
 with tabs[1]:
-    # Loop through chat history and display messages
     for message in st.session_state.history:
         with st.chat_message("user" if message["role"] == "user" else "assistant"):
             st.markdown(message["content"])
-        # Convert assistant's response to speech if TTS is enabled
         if message["role"] == "assistant" and st.session_state.tts_enabled:
-            audio_file = text_to_speech(
-                message["content"], f"audio_{len(st.session_state.history)}.mp3"
-            )
+            audio_file = text_to_speech(message["content"], f"audio_{len(st.session_state.history)}.mp3")
             st.audio(open(audio_file, "rb").read(), format="audio/mp3")
 
 # History tab
@@ -230,24 +199,18 @@ with tabs[2]:
         st.rerun()
     if st.button("New Chat"):
         if st.session_state.history:
-            save_chat_history(
-                st.session_state.current_session, st.session_state.history
-            )
+            save_chat_history(st.session_state.current_session, st.session_state.history)
         st.session_state.history = []
         st.session_state.current_session = f"Chat {len(get_saved_chats()) + 1}"
         st.rerun()
     chat_text = "\n".join(
-        [
-            f"{msg['role'].capitalize()}: {msg['content']}"
-            for msg in st.session_state.history
-        ]
-    )
+        [f"{msg['role'].capitalize()}: {msg['content']}"
+        for msg in st.session_state.history])
     st.download_button(
         "Download Chat",
         chat_text,
         f"{st.session_state.current_session}.txt",
-        mime="text/plain",
-    )
+        mime="text/plain")
     if st.button("Clear All Chats"):
         for file in os.listdir(History_Dir):
             os.remove(os.path.join(History_Dir, file))
@@ -256,9 +219,7 @@ with tabs[2]:
 
 # Settings tab
 with tabs[3]:
-    st.session_state.tts_enabled = st.checkbox(
-        "Enable Text-to-Speech", value=st.session_state.tts_enabled
-    )
+    st.session_state.tts_enabled = st.checkbox("Enable Text-to-Speech", value=st.session_state.tts_enabled)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # Chat input
@@ -266,18 +227,14 @@ user_input = st.chat_input("Type your message...")
 if user_input:
     st.session_state.history.append({"role": "user", "content": user_input})
     chat_history = "\n".join(
-        [
-            f"{msg['role'].capitalize()}: {msg['content']}"
-            for msg in st.session_state.history
-        ]
-    )
+        [f"{msg['role'].capitalize()}: {msg['content']}"
+        for msg in st.session_state.history])
     full_prompt = f"{System_Prompt}\n\n{chat_history}\n\nUser: {user_input}"
 
     # Display loading message for assistant response
     with st.chat_message("assistant"):
         search_msg = st.empty()
         search_msg.markdown("Searching... Please wait")
-
     try:
         response = chatbot.predict(input=full_prompt)
     except ResourceExhausted:
